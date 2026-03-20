@@ -31,7 +31,7 @@ if uploaded_file is not None:
                 base64_image = base64.b64encode(uploaded_file.getvalue()).decode('utf-8')
                 
                 completion = client.chat.completions.create(
-                    model="llama-3.2-11b-vision-instant",
+                    model="llama-3.2-90b-vision-preview",
                     messages=[
                         {
                             "role": "user",
