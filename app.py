@@ -44,7 +44,7 @@ def process_receipt(image_file, api_key):
     
     try:
         completion = client.chat.completions.create(
-            model="llama-3.2-11b-vision-preview",
+            model="llama-3.2-11b-vision-pixtral",
             messages=[
                 {
                     "role": "user",
