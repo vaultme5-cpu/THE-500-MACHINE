@@ -7,7 +7,7 @@ import base64
 # --- 1. CORE FUNCTIONS ---
 def verify_license(key):
     """Checks the key with Lemon Squeezy. Includes a secret TEST bypass."""
-    if key == "HUSTLE500":  # Use this key to test before you have real sales!
+    if key == "HUSTLE500":  
         return True
     
     url = "https://api.lemonsqueezy.com/v1/licenses/validate"
@@ -21,13 +21,12 @@ def encode_image(image_file):
     return base64.b64encode(image_file.read()).decode('utf-8')
 
 def process_receipt(image_file, api_key):
-    """The 2026 Error-Free Vision Engine"""
     client = Groq(api_key=api_key)
     image_file.seek(0)
     base64_image = encode_image(image_file)
     
-    # This is the stable production ID for 2026
-    model_id = "llama-3.2-11b-vision-pixtral"
+    # THE VERIFIED, ACTIVE 2026 MODEL ID
+    model_id = "meta-llama/llama-4-scout-17b-16e-instruct"
     
     prompt = "Extract: Date, Item, Category, Amount. Return ONLY raw CSV rows. No intro text."
     
@@ -49,10 +48,9 @@ def process_receipt(image_file, api_key):
 
 # --- 2. SIDEBAR ---
 st.sidebar.title("🚀 The 500 Machine")
-st.sidebar.info("Goal: 5 Sales at ₹99")
+st.sidebar.info("Goal: 500 Sales 🔥")
 user_key = st.sidebar.text_input("License Key", type="password")
 
-# Verification Logic
 is_pro = False
 if user_key:
     if verify_license(user_key):
@@ -69,7 +67,7 @@ if is_pro:
 else:
     st.warning("🔒 Free Mode: 1 file limit.")
     files = st.file_uploader("Upload 1 Receipt", type=['png', 'jpg', 'jpeg'], accept_multiple_files=False)
-    if files: files = [files] # Convert single to list for the loop
+    if files: files = [files] 
 
 # --- 4. THE ACTION ---
 if st.button("Generate Dashboard Data") and files:
@@ -82,10 +80,14 @@ if st.button("Generate Dashboard Data") and files:
         for i, f in enumerate(files):
             with st.spinner(f"Reading {f.name}..."):
                 raw_out = process_receipt(f, st.secrets["GROQ_API_KEY"])
-                # Only keep lines with commas (actual CSV data)
-                for line in raw_out.split('\n'):
-                    if "," in line and "Date" not in line:
-                        all_rows.append(line)
+                
+                # Show exact error on screen if the API fails
+                if "Error:" in raw_out:
+                    st.error(f"Failed on {f.name}: {raw_out}")
+                else:
+                    for line in raw_out.split('\n'):
+                        if "," in line and "Date" not in line:
+                            all_rows.append(line)
             bar.progress((i + 1) / len(files))
         
         if all_rows:
@@ -93,4 +95,4 @@ if st.button("Generate Dashboard Data") and files:
             st.success("Extraction Complete!")
             st.text_area("Copy this to your Google Sheet:", value=final_csv, height=300)
             st.download_button("Download CSV", data=final_csv, file_name="receipt_data.csv")
-        
+                
