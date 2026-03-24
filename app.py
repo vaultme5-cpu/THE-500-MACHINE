@@ -7,34 +7,28 @@ import base64
 # --- 1. CORE FUNCTIONS ---
 def verify_license(key):
     """Checks the key with Lemon Squeezy API"""
-    # For testing purposes, you can uncomment the line below:
-    # if key == "TEST123": return True
-    
+    # For testing, you can uncomment the next line:
+    # if key == "HUSTLE": return True
     url = "https://api.lemonsqueezy.com/v1/licenses/validate"
     try:
         response = requests.post(url, data={"license_key": key})
-        if response.status_code == 200:
-            return response.json().get("valid", False)
+        return response.json().get("valid", False)
     except:
         return False
-    return False
 
 def encode_image(image_file):
-    """Encodes image to base64 for AI processing"""
     return base64.b64encode(image_file.read()).decode('utf-8')
 
 def process_receipt(image_file, api_key):
-    """The AI Vision Engine - Fixed for Pixtral Vision Model"""
+    """The AI Vision Engine - Updated for 2026 Stability"""
     client = Groq(api_key=api_key)
-    
-    # Reset file pointer to start
     image_file.seek(0)
     base64_image = encode_image(image_file)
     
-    # Using the stable Pixtral Vision model
-    model_id = "llama-3.2-11b-vision-pixtral"
+    # USING THE MOST STABLE VISION MODEL AVAILABLE ON GROQ
+    model_id = "llama-3.2-90b-vision-preview"
     
-    prompt = "Extract Date, Item, Category, and Amount from this receipt. Return ONLY raw CSV rows. No intro or markdown."
+    prompt = "Extract Date, Item, Category, and Amount from this receipt. Return ONLY raw CSV rows."
     
     try:
         completion = client.chat.completions.create(
@@ -44,12 +38,7 @@ def process_receipt(image_file, api_key):
                     "role": "user",
                     "content": [
                         {"type": "text", "text": prompt},
-                        {
-                            "type": "image_url", 
-                            "image_url": {
-                                "url": f"data:image/jpeg;base64,{base64_image}"
-                            }
-                        }
+                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
                     ]
                 }
             ],
@@ -57,9 +46,9 @@ def process_receipt(image_file, api_key):
         )
         return completion.choices[0].message.content.strip()
     except Exception as e:
-        return f"Error processing {image_file.name}: {str(e)}"
+        return f"Error: {str(e)}"
 
-# --- 2. SIDEBAR (LICENSING) ---
+# --- 2. SIDEBAR ---
 st.sidebar.title("🚀 The 500 Machine")
 user_key = st.sidebar.text_input("Enter Pro License Key", type="password")
 is_pro = False
@@ -75,16 +64,16 @@ if user_key:
 st.title("📊 AI Bulk Receipt Scanner")
 
 if is_pro:
-    uploaded_files = st.file_uploader("Upload Receipts (Bulk Mode)", type=['png', 'jpg', 'jpeg'], accept_multiple_files=True)
+    uploaded_files = st.file_uploader("Upload Receipts (Bulk)", type=['png', 'jpg', 'jpeg'], accept_multiple_files=True)
 else:
-    st.info("💡 Free Version: 1 image limit. Enter license key for Bulk Mode.")
+    st.info("💡 Free Mode: 1 image limit. Upgrade for Bulk.")
     uploaded_file = st.file_uploader("Upload Receipt", type=['png', 'jpg', 'jpeg'], accept_multiple_files=False)
     uploaded_files = [uploaded_file] if uploaded_file else []
 
 # --- 4. PROCESSING ---
 if st.button("Start Processing") and uploaded_files:
     if "GROQ_API_KEY" not in st.secrets:
-        st.error("Please add GROQ_API_KEY to Streamlit Secrets.")
+        st.error("Add GROQ_API_KEY to Secrets!")
     else:
         all_data = []
         progress_bar = st.progress(0)
@@ -92,17 +81,16 @@ if st.button("Start Processing") and uploaded_files:
         for i, file in enumerate(uploaded_files):
             with st.spinner(f"Reading {file.name}..."):
                 result = process_receipt(file, st.secrets["GROQ_API_KEY"])
-                # Clean out any repeated headers the AI might generate
+                # Only keep lines that look like data
                 lines = result.split('\n')
                 for line in lines:
-                    if "Date" not in line and len(line) > 5:
+                    if "," in line and "Date" not in line:
                         all_data.append(line)
-            
             progress_bar.progress((i + 1) / len(uploaded_files))
         
         if all_data:
             final_csv = "Date, Item, Category, Amount\n" + "\n".join(all_data)
-            st.success("Processing Complete!")
-            st.text_area("Copy and paste this into your Dashboard:", value=final_csv, height=300)
-            st.download_button("Download CSV", data=final_csv, file_name="data.csv", mime="text/csv")
+            st.success("✨ Done!")
+            st.text_area("Copy this to your Dashboard:", value=final_csv, height=300)
+            st.download_button("Download CSV", data=final_csv, file_name="data.csv")
             
