@@ -1,3 +1,11 @@
+import streamlit as st  # <--- THIS MUST BE LINE 1
+import requests
+from groq import Groq
+import base64
+
+# This MUST be the first Streamlit command used
+st.set_page_config(page_title="The 500 Machine", layout="centered") 
+
 # --- 1. CONFIGURATION ---
 # Replace this with your actual Lemon Squeezy checkout link
 STORE_URL = "https://resumeweapon.lemonsqueezy.com/checkout/buy/bfb2b82e-22ed-4fe2-b2ba-998bafd9de65" 
