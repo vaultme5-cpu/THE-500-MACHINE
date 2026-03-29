@@ -13,7 +13,7 @@ else:
     st.error("Missing GEMINI_API_KEY in Streamlit Secrets!")
 
 def process_bill(image_file):
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('gemini-1.5-flash-latest')
     img = Image.open(image_file)
     # The Prompt for perfect Google Sheets pasting
     prompt = "Extract: Date, Item, Category, Amount. Return ONLY raw rows. Separate columns with a TAB. No headers."
