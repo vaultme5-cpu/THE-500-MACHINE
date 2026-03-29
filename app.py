@@ -1,20 +1,20 @@
 import streamlit as st
 from google import genai
 from PIL import Image
+import time
 
 # 1. Page Setup
 st.set_page_config(page_title="The 500 Machine", layout="centered")
 STORE_URL = "https://resumeweapon.lemonsqueezy.com/checkout/buy/bfb2b82e-22ed-4fe2-b2ba-998bafd9de65"
 
-# 2. Modern 2026 API Client
+# 2. API Client
 if "GEMINI_API_KEY" in st.secrets:
     client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
 else:
-    st.error("Go to Streamlit Settings > Secrets and add GEMINI_API_KEY")
+    st.error("Missing GEMINI_API_KEY in Streamlit Secrets!")
 
 def process_receipt(image_file):
     img = Image.open(image_file)
-    # Using the 2026 stable workhorse model
     model_id = "gemini-3-flash-preview" 
     prompt = "Extract Date, Item, Category, Amount. Return ONLY raw rows. Use TAB between columns. No headers."
     
@@ -42,12 +42,20 @@ if st.button("Generate Data", type="primary") and files:
     final_output = []
     
     for f in file_list:
-        with st.spinner(f"Reading {f.name}..."):
+        with st.spinner(f"Processing {f.name}..."):
             data = process_receipt(f)
-            # Remove any AI markdown formatting
+            
+            # Retry logic if Google is busy (The 503 Fix)
+            if "503" in data or "UNAVAILABLE" in data:
+                time.sleep(3) 
+                data = process_receipt(f)
+            
             clean_data = data.replace("```", "").replace("csv", "").strip()
             final_output.append(clean_data)
+            
+            # Tiny 2-second gap to stay under rate limits
+            time.sleep(2) 
     
-    st.success("✅ Done!")
+    st.success("✅ Bulk Processing Complete!")
     st.text_area("Copy to Google Sheets (A2)", value="\n".join(final_output), height=300)
     
