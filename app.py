@@ -13,13 +13,18 @@ else:
     st.error("Missing GEMINI_API_KEY in Streamlit Secrets!")
 
 def process_bill(image_file):
-    model = genai.GenerativeModel('gemini-1.5-flash-latest')
+    # Using the specific version ID to prevent 'NotFound' errors
+    model = genai.GenerativeModel(model_name="models/gemini-1.5-flash")
     img = Image.open(image_file)
-    # The Prompt for perfect Google Sheets pasting
+    
     prompt = "Extract: Date, Item, Category, Amount. Return ONLY raw rows. Separate columns with a TAB. No headers."
-    response = model.generate_content([prompt, img])
-    return response.text.strip()
-
+    
+    try:
+        response = model.generate_content([prompt, img])
+        return response.text.strip()
+    except Exception as e:
+        return f"Error: {str(e)}"
+        
 # 3. UI & LICENSE
 st.sidebar.title("🔐 License")
 key = st.sidebar.text_input("Enter Key", type="password")
