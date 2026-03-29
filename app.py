@@ -1,36 +1,40 @@
-import streamlit as st
-import pandas as pd
-from groq import Groq
-import base64
-import io
+# --- 1. CONFIGURATION ---
+# Replace this with your actual Lemon Squeezy checkout link
+STORE_URL = "https://resumeweapon.lemonsqueezy.com/checkout/buy/bfb2b82e-22ed-4fe2-b2ba-998bafd9de65" 
 
-# --- 1. SETTINGS & STYLING ---
-st.set_page_config(page_title="AI Receipt Scanner", layout="wide")
-
-# REPLACE THIS with your actual Lemon Squeezy link
-STORE_URL = "https://yourstore.lemonsqueezy.com/checkout/buy/pro" 
-
-# --- 2. CORE ENGINE ---
 def verify_license(key):
-    """The key check. 'HUSTLE500' is your internal dev backdoor."""
-    if key == "HUSTLE500": return True
+    """
+    Validates the license key. 
+    Use 'HUSTLE500' to test the app yourself without buying a key.
+    """
+    if key == "HUSTLE500":
+        return True
+    
+    # Lemon Squeezy API Validation
     url = "https://api.lemonsqueezy.com/v1/licenses/validate"
     try:
-        # Note: In production, you would use requests.post(url, data={"license_key": key})
-        # For now, we return True for testing purposes if you have no API set up
-        return False 
-    except: return False
+        # Note: Replace with your actual Lemon Squeezy API logic if needed
+        # For testing, we check if the key is provided
+        return len(key) > 5 
+    except:
+        return False
+
+def encode_image(image_file):
+    return base64.b64encode(image_file.read()).decode('utf-8')
 
 def process_receipt(image_file, api_key):
     client = Groq(api_key=api_key)
     image_file.seek(0)
-    base64_image = base64.b64encode(image_file.read()).decode('utf-8')
+    base64_image = encode_image(image_file)
     
-    # THE 2026 PRODUCTION VISION ID
-    # This model replaces the decommissioned llama-3.2 series
+    # THE 2026 PRODUCTION MODEL (Fixed the Decommissioned error)
     model_id = "meta-llama/llama-4-scout-17b-16e-instruct"
     
-    prompt = "Extract: Date, Item, Category, Amount. Format as CSV: Date,Item,Category,Amount. No headers. No talk."
+    # Explicitly asking for TABS to fix the Google Sheets pasting issue
+    prompt = """Extract these 4 fields: Date, Item, Category, Amount.
+    Return ONLY the raw data rows. 
+    Separate each column with a TAB character. 
+    Do not include headers or any other text."""
     
     try:
         completion = client.chat.completions.create(
@@ -48,63 +52,75 @@ def process_receipt(image_file, api_key):
     except Exception as e:
         return f"Error: {str(e)}"
 
-# --- 3. SIDEBAR (KEY ENTRY) ---
-st.sidebar.title("🔐 Account")
-user_key = st.sidebar.text_input("License Key", type="password", help="Enter HUSTLE500 to test")
-is_pro = verify_license(user_key)
+# --- 2. USER INTERFACE ---
+st.set_page_config(page_title="The 500 Machine", layout="centered")
 
-# --- 4. MAIN FRONT PAGE AD ---
+# SIDEBAR: License Entry
+st.sidebar.title("🔐 Account")
+license_key = st.sidebar.text_input("Enter License Key", type="password")
+is_pro = verify_license(license_key) if license_key else False
+
+# MAIN PAGE: The "Ad" for Free Users
 if not is_pro:
     st.markdown(f"""
-    <div style="background-color:#0e1117; padding:30px; border: 2px solid #ff4b4b; border-radius:15px; text-align:center; margin-bottom:25px;">
-        <h1 style="color:white; margin:0;">🚀 The 500 Machine: Bulk Receipt Power</h1>
-        <p style="color:#fafafa; font-size:18px;">Tired of scanning one by one? Unlock <b>Bulk Mode</b> and scan 50+ bills at once.</p>
-        <a href="{STORE_URL}" target="_blank">
-            <button style="background-color:#ff4b4b; color:white; border:none; padding:15px 30px; border-radius:8px; font-weight:bold; cursor:pointer; width:100%;">
-                GET LIFETIME BULK ACCESS - ₹99
+    <div style="background-color:#ff4b4b; padding:25px; border-radius:15px; text-align:center; color:white;">
+        <h1 style="margin:0;">🚀 Unlock Bulk Scanning</h1>
+        <p style="font-size:18px;">Stop doing one-by-one. Process 100+ receipts at once for just ₹99.</p>
+        <a href="{https://resumeweapon.lemonsqueezy.com/checkout/buy/bfb2b82e-22ed-4fe2-b2ba-998bafd9de65}" target="_blank" style="text-decoration:none;">
+            <button style="background-color:white; color:#ff4b4b; border:none; padding:12px 24px; border-radius:8px; font-weight:bold; cursor:pointer; width:100%; margin-top:10px;">
+                BUY LIFETIME PRO ACCESS
             </button>
         </a>
     </div>
     """, unsafe_allow_html=True)
+    st.divider()
 else:
-    st.success("✅ PRO ACTIVE: Bulk Mode Enabled")
+    st.balloons()
+    st.success("✨ PRO MODE ACTIVE: Bulk Upload Enabled")
 
-# --- 5. UPLOADER ---
-st.title("📊 AI Receipt to Spreadsheet")
-files = st.file_uploader("Drop receipts here", type=['jpg', 'jpeg', 'png'], accept_multiple_files=is_pro)
+st.title("📊 AI Receipt Scanner")
+st.write("Upload your bills and get structured data for your Google Sheet Dashboard.")
 
-# --- 6. PROCESSING LOGIC ---
-if st.button("🔥 Generate My Data", type="primary") and files:
+# File Uploader (Multiple files only for Pro)
+files = st.file_uploader(
+    "Choose receipt images", 
+    type=['png', 'jpg', 'jpeg'], 
+    accept_multiple_files=is_pro
+)
+
+# --- 3. EXECUTION ---
+if st.button("Generate Dashboard Data", type="primary") and files:
     if "GROQ_API_KEY" not in st.secrets:
-        st.error("Missing API Key! Add it to .streamlit/secrets.toml")
+        st.error("API Key missing! Add 'GROQ_API_KEY' to your Streamlit Secrets.")
     else:
         file_list = files if isinstance(files, list) else [files]
-        all_data = []
-        progress = st.progress(0)
+        all_rows = []
         
+        progress_bar = st.progress(0)
         for i, f in enumerate(file_list):
-            with st.spinner(f"Scanning {f.name}..."):
-                res = process_receipt(f, st.secrets["GROQ_API_KEY"])
-                if "Error" not in res:
-                    for line in res.split('\n'):
-                        parts = line.split(',')
-                        if len(parts) >= 4:
-                            all_data.append(parts[:4])
-            progress.progress((i + 1) / len(file_list))
-        
-        if all_data:
-            df = pd.DataFrame(all_data, columns=["Date", "Item", "Category", "Amount"])
+            with st.spinner(f"Processing {f.name}..."):
+                raw_out = process_receipt(f, st.secrets["GROQ_API_KEY"])
+                
+                # Cleanup: Ensure Tab-separation for the clipboard
+                for line in raw_out.split('\n'):
+                    if len(line) > 5:
+                        # Convert any accidental commas to Tabs
+                        clean_line = line.replace(",", "\t")
+                        all_rows.append(clean_line)
+            progress_bar.progress((i + 1) / len(file_list))
+
+        if all_rows:
+            final_output = "\n".join(all_rows)
+            st.success("✅ Extraction Complete!")
             
-            st.divider()
-            st.subheader("✅ Extraction Complete")
+            st.markdown("### 📋 1. Copy the data below")
+            # Text area is best for preserving TAB characters for Google Sheets
+            st.text_area(
+                label="Select all (Ctrl+A), Copy (Ctrl+C)", 
+                value=final_output, 
+                height=200
+            )
             
-            # THE FIX: Display as a proper interactive table
-            # Users can select all cells and copy-paste directly to Sheets!
-            st.dataframe(df, use_container_width=True, hide_index=True)
+            st.markdown("### 📈 2. Paste into Google Sheets")
+            st.info("Click cell **A2** in your Expense Sheet and press **Ctrl+V**. The data will automatically split into 4 columns.")
             
-            st.info("💡 **Pro Tip:** Click one cell, press **Ctrl+A** then **Ctrl+C**. Paste into Google Sheets cell **A2**.")
-            
-            # Fallback text area with TABS (the secret for perfect pasting)
-            tsv_data = df.to_csv(index=False, sep='\t', header=False)
-            st.text_area("Alternative Copy (Raw Tabs):", value=tsv_data, height=150)
-    
