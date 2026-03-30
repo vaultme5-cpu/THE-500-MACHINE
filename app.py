@@ -15,7 +15,7 @@ APP_NAME = "Bulk Data Pro" if is_pro else "Solo Receipt Scanner"
 st.set_page_config(page_title=APP_NAME, layout="centered")
 st.title(f"🚀 {APP_NAME}")
 
-STORE_URL = "https://resumeweapon.lemonsqueezy.com/checkout/buy/bfb2b82e-22ed-4fe2-b2ba-998bafd9de65"
+STORE_URL = "https://resumeweapon.lemonsqueezy.com/checkout/buy/513ad46a-ccf3-4ad7-987c-52759a0a6890"
 
 # 3. API Client
 client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
