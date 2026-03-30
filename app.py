@@ -35,10 +35,17 @@ if st.button("Extract Data") and files:
     results = []
     for f in file_list:
         with st.spinner(f"Scanning {f.name}..."):
-            img = Image.open(f)
-            res = client.models.generate_content(model="gemini-3-flash-preview", contents=["Extract Date, Item, Category, Amount. Tab-separated.", img])
-            results.append(res.text.strip())
-            time.sleep(1)
+            try:
+                img = Image.open(f)
+                res = client.models.generate_content(
+                    model="gemini-3-flash-preview", 
+                    contents=["Extract Date, Item, Category, Amount. Tab-separated.", img]
+                )
+                results.append(res.text.strip())
+            except Exception as e:
+                # This keeps the app running even if there is a server error
+                results.append(f"Error: Server busy for {f.name}. Please retry.")
+                            
     
     final = "\n".join(results)
     st.code(final, language="text")
