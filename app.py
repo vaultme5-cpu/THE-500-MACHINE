@@ -30,21 +30,26 @@ st.title(f"🚀 {APP_NAME}")
 
 files = st.file_uploader("Upload", type=['png', 'jpg'], accept_multiple_files=is_pro)
 
-if st.button("Extract Data") and files:
-    file_list = files if isinstance(files, list) else [files]
-    results = []
     for f in file_list:
         with st.spinner(f"Scanning {f.name}..."):
-            try:
-                img = Image.open(f)
-                res = client.models.generate_content(
-                    model="gemini-3-flash-preview", 
-                    contents=["Extract Date, Item, Category, Amount. Tab-separated.", img]
-                )
-                results.append(res.text.strip())
-            except Exception as e:
-                # This keeps the app running even if there is a server error
-                results.append(f"Error: Server busy for {f.name}. Please retry.")
+            # TRY 3 TIMES BEFORE GIVING UP (Fixes "Server Busy" Error)
+            success = False
+            for attempt in range(3):
+                data = process_receipt(f)
+                if "Error: Server busy" not in data:
+                    results.append(data)
+                    success = True
+                    break 
+                else:
+                    # Wait longer each time it fails
+                    time.sleep(4) 
+            
+            if not success:
+                results.append(f"Failed after 3 retries: {f.name}")
+            
+            # 3 second gap between different images to stay under limits
+            time.sleep(3) 
+            
                             
     
     final = "\n".join(results)
