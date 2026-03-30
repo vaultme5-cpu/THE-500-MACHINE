@@ -37,39 +37,41 @@ st.title(f"🚀 {APP_NAME}")
 files = st.file_uploader("Upload", type=['png', 'jpg', 'jpeg'], accept_multiple_files=is_pro)
 
 if st.button("Extract Data") and files:
-    file_list = files if isinstance(files, list) else [files]
+        file_list = files if isinstance(files, list) else [files]
     results = []
-    
     status_text = st.empty()
     
     for i, f in enumerate(file_list):
-        status_text.text(f"Scanning {i+1} of {len(file_list)}: {f.name}...")
+        status_text.text(f"Processing {i+1}/{len(file_list)}: {f.name}...")
         success = False
+        wait_time = 5  # Initial wait time
         
-        # Self-Healing Retry Loop
-        for attempt in range(3):
+        # 4 ATTEMPTS WITH EXPONENTIAL BACKOFF
+        for attempt in range(4):
             try:
                 img = Image.open(f)
                 res = client.models.generate_content(
                     model="gemini-3-flash-preview", 
-                    contents=["Extract Date, Item, Category, Amount. Tab-separated. No headers.", img]
+                    contents=["Extract Date, Item, Category, Amount. Tab-separated.", img]
                 )
-                
                 if res and res.text:
                     results.append(res.text.strip())
                     success = True
-                    break 
-                else:
-                    time.sleep(4) 
+                    break
             except Exception:
-                time.sleep(4) 
+                # If Google says 'Server Busy', wait longer each time
+                time.sleep(wait_time)
+                wait_time *= 2 
         
         if not success:
-            results.append(f"Error: Could not process {f.name}")
+            # Fallback row so the machine never stops
+            results.append(f"N/A\t{f.name} (Scan Failed)\tError\t0.00")
         
-        time.sleep(3) 
+        # Mandatory gap to keep the Free Tier stable
+        time.sleep(4) 
 
-    status_text.empty()
+    status_text.success("✅ Extraction Complete!")
+                                   
     
     # Final Output
     if results:
