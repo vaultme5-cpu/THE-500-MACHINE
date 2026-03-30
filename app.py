@@ -6,11 +6,11 @@ import pandas as pd
 import io
 import requests
 
-# 1. Setup
+# --- 1. SETUP & CONFIG ---
 STORE_URL = "https://resumeweapon.lemonsqueezy.com/checkout/buy/513ad46a-ccf3-4ad7-987c-52759a0a6890"
 
 if "GEMINI_API_KEY" not in st.secrets:
-    st.error("Error: Missing GEMINI_API_KEY in Streamlit secrets.")
+    st.error("Missing API Key in Secrets!")
     st.stop()
 
 client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
@@ -18,35 +18,35 @@ client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
 def verify_key(key):
     if key == "HUSTLE500": return True
     try:
-        r = requests.post("https://api.lemonsqueezy.com/v1/licenses/activate", data={'license_key': key}, timeout=5)
+        r = requests.post("https://api.lemonsqueezy.com/v1/licenses/activate", data={'license_key': key}, timeout=10)
         return r.json().get('activated', False)
-    except: 
+    except:
         return False
 
-# 2. Sidebar
+# --- 2. SIDEBAR ---
 st.sidebar.title("🔐 License")
 user_key = st.sidebar.text_input("Enter Key", type="password")
 is_pro = verify_key(user_key)
-if is_pro: st.sidebar.success("Pro Active")
+if is_pro:
+    st.sidebar.success("Pro Active")
 
-# 3. Main UI
+# --- 3. MAIN UI ---
 APP_NAME = "Bulk Data Pro" if is_pro else "Solo Receipt Scanner"
 st.set_page_config(page_title=APP_NAME, layout="centered")
 st.title(f"🚀 {APP_NAME}")
 
-files = st.file_uploader("Upload", type=['png', 'jpg', 'jpeg'], accept_multiple_files=is_pro)
+files = st.file_uploader("Upload Receipts", type=['png', 'jpg', 'jpeg'], accept_multiple_files=is_pro)
 
 if st.button("Extract Data") and files:
-        file_list = files if isinstance(files, list) else [files]
+    file_list = files if isinstance(files, list) else [files]
     results = []
-    status_text = st.empty()
+    status = st.empty()
     
     for i, f in enumerate(file_list):
-        status_text.text(f"Processing {i+1}/{len(file_list)}: {f.name}...")
+        status.text(f"Scanning {i+1}/{len(file_list)}: {f.name}...")
         success = False
-        wait_time = 5  # Initial wait time
+        wait = 5 # Initial retry delay
         
-        # 4 ATTEMPTS WITH EXPONENTIAL BACKOFF
         for attempt in range(4):
             try:
                 img = Image.open(f)
@@ -59,35 +59,27 @@ if st.button("Extract Data") and files:
                     success = True
                     break
             except Exception:
-                # If Google says 'Server Busy', wait longer each time
-                time.sleep(wait_time)
-                wait_time *= 2 
+                time.sleep(wait)
+                wait *= 2 # Wait longer each time
         
         if not success:
-            # Fallback row so the machine never stops
             results.append(f"N/A\t{f.name} (Scan Failed)\tError\t0.00")
         
-        # Mandatory gap to keep the Free Tier stable
-        time.sleep(4) 
+        time.sleep(4) # Stability gap
 
-    status_text.success("✅ Extraction Complete!")
-                                   
+    status.success("✅ Done!")
     
-    # Final Output
     if results:
-        final = "\n".join(results)
-        st.code(final, language="text")
+        final_text = "\n".join(results)
+        st.code(final_text, language="text")
         try:
-            df = pd.read_csv(io.StringIO(final), sep='\t', names=["Date", "Item", "Category", "Amount"])
+            df = pd.read_csv(io.StringIO(final_text), sep='\t', names=["Date", "Item", "Category", "Amount"])
             st.download_button("Download CSV", df.to_csv(index=False).encode('utf-8'), "data.csv")
         except:
-            st.warning("Formatting error in CSV. Please copy the text above.")
+            st.warning("Could not format CSV, please copy text above.")
 
-# 4. Bottom Ad
+# --- 4. FOOTER AD ---
 if not is_pro:
     st.divider()
-    st.markdown(f'''<a href="{STORE_URL}" target="_blank">
-        <button style="width:100%;background:#ff4b4b;color:white;padding:15px;border:none;border-radius:10px;font-weight:bold;cursor:pointer;">
-            🔥 UNLOCK BULK MODE - PRO ACCESS
-        </button></a>''', unsafe_allow_html=True)
-                                                       
+    st.markdown(f'<a href="{STORE_URL}" target="_blank"><button style="width:100%;background:#ff4b4b;color:white;padding:15px;border:none;border-radius:10px;font-weight:bold;cursor:pointer;">🔥 UNLOCK BULK MODE - PRO ACCESS</button></a>', unsafe_allow_html=True)
+            
